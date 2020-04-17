@@ -5,7 +5,7 @@
  *
  * <p>IJPay 交流群: 723992875</p>
  *
- * <p>Node.js 版: https://gitee.com/javen205/TNW</p>
+ * <p>Node.js 版: https://gitee.com/javen205/TNWX</p>
  *
  * <p>Model 公用方法</p>
  *
@@ -32,8 +32,7 @@ public class BaseModel {
     public Map<String, String> toMap() {
         String[] fieldNames = getFiledNames(this);
         HashMap<String, String> map = new HashMap<String, String>(fieldNames.length);
-        for (int i = 0; i < fieldNames.length; i++) {
-            String name = fieldNames[i];
+        for (String name : fieldNames) {
             String value = (String) getFieldValueByName(name, this);
             if (StrUtil.isNotEmpty(value)) {
                 map.put(name, value);
@@ -50,7 +49,19 @@ public class BaseModel {
      * @return 构建签名后的 Map
      */
     public Map<String, String> createSign(String partnerKey, SignType signType) {
-        return WxPayKit.buildSign(toMap(), partnerKey, signType);
+        return createSign(partnerKey,signType,true);
+    }
+
+    /**
+     * 构建签名 Map
+     *
+     * @param partnerKey   API KEY
+     * @param signType     {@link SignType} 签名类型
+     * @param haveSignType 签名是否包含 sign_type 字段
+     * @return 构建签名后的 Map
+     */
+    public Map<String, String> createSign(String partnerKey, SignType signType, boolean haveSignType) {
+        return WxPayKit.buildSign(toMap(), partnerKey, signType,haveSignType);
     }
 
     /**
@@ -82,8 +93,8 @@ public class BaseModel {
                     .append(firstLetter)
                     .append(fieldName.substring(1))
                     .toString();
-            Method method = obj.getClass().getMethod(getter, new Class[]{});
-            return method.invoke(obj, new Object[]{});
+            Method method = obj.getClass().getMethod(getter);
+            return method.invoke(obj);
         } catch (Exception e) {
             return null;
         }

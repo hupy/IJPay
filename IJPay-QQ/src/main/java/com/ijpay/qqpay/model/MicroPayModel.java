@@ -5,7 +5,7 @@
  *
  * <p>IJPay 交流群: 723992875</p>
  *
- * <p>Node.js 版: https://gitee.com/javen205/TNW</p>
+ * <p>Node.js 版: https://gitee.com/javen205/TNWX</p>
  *
  * <p>提交付款码支付 Model</p>
  *
@@ -14,14 +14,15 @@
 package com.ijpay.qqpay.model;
 
 import com.ijpay.core.model.BaseModel;
-import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.Setter;
 
 @Builder
-@AllArgsConstructor(access = AccessLevel.PRIVATE)
+@AllArgsConstructor
 @Getter
+@Setter
 public class MicroPayModel extends BaseModel {
     private String appid;
     private String sub_appid;

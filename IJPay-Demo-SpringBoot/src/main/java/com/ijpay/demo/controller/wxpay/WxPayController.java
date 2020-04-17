@@ -19,6 +19,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
+import org.springframework.util.ResourceUtils;
 import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
@@ -35,7 +36,7 @@ import java.util.Map;
  *
  * <p>IJPay 交流群: 723992875</p>
  *
- * <p>Node.js 版: https://gitee.com/javen205/TNW</p>
+ * <p>Node.js 版: https://gitee.com/javen205/TNWX</p>
  *
  * <p>微信支付 Demo</p>
  *
@@ -50,6 +51,7 @@ public class WxPayController extends AbstractWxPayApiController {
     WxPayBean wxPayBean;
 
     private String notifyUrl;
+    private String refundNotifyUrl;
     private static final String USER_PAYING = "USERPAYING";
 
 
@@ -69,6 +71,7 @@ public class WxPayController extends AbstractWxPayApiController {
                     .build();
         }
         notifyUrl = apiConfig.getDomain().concat("/wxPay/payNotify");
+        refundNotifyUrl = apiConfig.getDomain().concat("/wxPay/refundNotify");
         return apiConfig;
     }
 
@@ -119,13 +122,14 @@ public class WxPayController extends AbstractWxPayApiController {
                 .appid(wxPayApiConfig.getAppId())
                 .mch_id(wxPayApiConfig.getMchId())
                 .nonce_str(WxPayKit.generateStr())
-                .body("IJPay 让支付触手可及-公众号支付")
-                .attach("Node.js 版:https://gitee.com/javen205/TNW")
+                .body("IJPay 让支付触手可及-H5支付")
+                .attach("Node.js 版:https://gitee.com/javen205/TNWX")
                 .out_trade_no(WxPayKit.generateStr())
                 .total_fee("1000")
                 .spbill_create_ip(ip)
                 .notify_url(notifyUrl)
                 .trade_type(TradeType.MWEB.getTradeType())
+                .scene_info(JSON.toJSONString(sceneInfo))
                 .build()
                 .createSign(wxPayApiConfig.getPartnerKey(), SignType.HMACSHA256);
 
@@ -183,7 +187,7 @@ public class WxPayController extends AbstractWxPayApiController {
                 .mch_id(wxPayApiConfig.getMchId())
                 .nonce_str(WxPayKit.generateStr())
                 .body("IJPay 让支付触手可及-公众号支付")
-                .attach("Node.js 版:https://gitee.com/javen205/TNW")
+                .attach("Node.js 版:https://gitee.com/javen205/TNWX")
                 .out_trade_no(WxPayKit.generateStr())
                 .total_fee("1000")
                 .spbill_create_ip(ip)
@@ -235,9 +239,10 @@ public class WxPayController extends AbstractWxPayApiController {
             log.info(qrCodeUrl);
             //生成二维码保存的路径
             String name = "payQRCode1.png";
+            log.info(ResourceUtils.getURL("classpath:").getPath());
             Boolean encode = QrCodeKit.encode(qrCodeUrl, BarcodeFormat.QR_CODE, 3, ErrorCorrectionLevel.H,
                     "png", 200, 200,
-                    request.getSession().getServletContext().getRealPath("/") + File.separator + name);
+                    ResourceUtils.getURL("classpath:").getPath().concat("static").concat(File.separator).concat(name));
             if (encode) {
                 //在页面上显示
                 return new AjaxResult().success(name);
@@ -296,7 +301,7 @@ public class WxPayController extends AbstractWxPayApiController {
                     .mch_id(wxPayApiConfig.getMchId())
                     .nonce_str(WxPayKit.generateStr())
                     .body("IJPay 让支付触手可及-扫码支付模式一")
-                    .attach("Node.js 版:https://gitee.com/javen205/TNW")
+                    .attach("Node.js 版:https://gitee.com/javen205/TNWX")
                     .out_trade_no(WxPayKit.generateStr())
                     .total_fee("1")
                     .spbill_create_ip(ip)
@@ -351,13 +356,6 @@ public class WxPayController extends AbstractWxPayApiController {
     public AjaxResult scanCode2(HttpServletRequest request, HttpServletResponse response,
                                 @RequestParam("total_fee") String totalFee) {
 
-        String openId = (String) request.getSession().getAttribute("openId");
-        //String openId="o5NJx1dVRilQI6uUVSaBDuLnM3iM";
-
-
-        if (StrKit.isBlank(openId)) {
-            return new AjaxResult().addError("openId is null");
-        }
         if (StrKit.isBlank(totalFee)) {
             return new AjaxResult().addError("支付金额不能为空");
         }
@@ -374,13 +372,12 @@ public class WxPayController extends AbstractWxPayApiController {
                 .mch_id(wxPayApiConfig.getMchId())
                 .nonce_str(WxPayKit.generateStr())
                 .body("IJPay 让支付触手可及-扫码支付模式二")
-                .attach("Node.js 版:https://gitee.com/javen205/TNW")
+                .attach("Node.js 版:https://gitee.com/javen205/TNWXX")
                 .out_trade_no(WxPayKit.generateStr())
                 .total_fee("1")
                 .spbill_create_ip(ip)
                 .notify_url(notifyUrl)
                 .trade_type(TradeType.NATIVE.getTradeType())
-                .openid(openId)
                 .build()
                 .createSign(wxPayApiConfig.getPartnerKey(), SignType.HMACSHA256);
 
@@ -438,7 +435,7 @@ public class WxPayController extends AbstractWxPayApiController {
                 .mch_id(wxPayApiConfig.getMchId())
                 .nonce_str(WxPayKit.generateStr())
                 .body("IJPay 让支付触手可及-刷卡支付")
-                .attach("Node.js 版:https://gitee.com/javen205/TNW")
+                .attach("Node.js 版:https://gitee.com/javen205/TNWXX")
                 .out_trade_no(WxPayKit.generateStr())
                 .total_fee("1")
                 .spbill_create_ip(ip)
@@ -446,7 +443,7 @@ public class WxPayController extends AbstractWxPayApiController {
                 .build()
                 .createSign(wxPayApiConfig.getPartnerKey(), SignType.HMACSHA256);
 
-        String xmlResult = WxPayApi.micropay(false, params);
+        String xmlResult = WxPayApi.microPay(false, params);
         //同步返回结果
         log.info("xmlResult:" + xmlResult);
         Map<String, String> result = WxPayKit.xmlToMap(xmlResult);
@@ -495,7 +492,7 @@ public class WxPayController extends AbstractWxPayApiController {
                 .mch_id(wxPayApiConfig.getMchId())
                 .nonce_str(WxPayKit.generateStr())
                 .body("IJPay 让支付触手可及-App支付")
-                .attach("Node.js 版:https://gitee.com/javen205/TNW")
+                .attach("Node.js 版:https://gitee.com/javen205/TNWXX")
                 .out_trade_no(WxPayKit.generateStr())
                 .total_fee("1000")
                 .spbill_create_ip(ip)
@@ -551,12 +548,13 @@ public class WxPayController extends AbstractWxPayApiController {
                 .mch_id(wxPayApiConfig.getMchId())
                 .nonce_str(WxPayKit.generateStr())
                 .body("IJPay 让支付触手可及-小程序支付")
-                .attach("Node.js 版:https://gitee.com/javen205/TNW")
+                .attach("Node.js 版:https://gitee.com/javen205/TNWXX")
                 .out_trade_no(WxPayKit.generateStr())
                 .total_fee("1000")
                 .spbill_create_ip(ip)
                 .notify_url(notifyUrl)
                 .trade_type(TradeType.JSAPI.getTradeType())
+                .openid(openId)
                 .build()
                 .createSign(wxPayApiConfig.getPartnerKey(), SignType.HMACSHA256);
 
@@ -608,7 +606,7 @@ public class WxPayController extends AbstractWxPayApiController {
                 .desc("IJPay 让支付触手可及-企业付款")
                 .spbill_create_ip(ip)
                 .build()
-                .createSign(wxPayApiConfig.getPartnerKey(), SignType.HMACSHA256);
+                .createSign(wxPayApiConfig.getPartnerKey(), SignType.MD5, false);
 
         // 提现
         String transfers = WxPayApi.transfers(params, wxPayApiConfig.getCertPath(), wxPayApiConfig.getMchId());
@@ -636,10 +634,10 @@ public class WxPayController extends AbstractWxPayApiController {
             Map<String, String> params = GetTransferInfoModel.builder()
                     .nonce_str(WxPayKit.generateStr())
                     .partner_trade_no(partnerTradeNo)
-                    .mchid(wxPayApiConfig.getMchId())
+                    .mch_id(wxPayApiConfig.getMchId())
                     .appid(wxPayApiConfig.getAppId())
                     .build()
-                    .createSign(wxPayApiConfig.getPartnerKey(), SignType.HMACSHA256);
+                    .createSign(wxPayApiConfig.getPartnerKey(), SignType.MD5, false);
 
             return WxPayApi.getTransferInfo(params, wxPayApiConfig.getCertPath(), wxPayApiConfig.getMchId());
         } catch (Exception e) {
@@ -746,6 +744,7 @@ public class WxPayController extends AbstractWxPayApiController {
                 .out_refund_no(WxPayKit.generateStr())
                 .total_fee("1")
                 .refund_fee("1")
+                .notify_url(refundNotifyUrl)
                 .build()
                 .createSign(wxPayApiConfig.getPartnerKey(), SignType.MD5);
 
@@ -779,6 +778,68 @@ public class WxPayController extends AbstractWxPayApiController {
     }
 
     /**
+     * 退款通知
+     */
+    @RequestMapping(value = "/refundNotify", method = {RequestMethod.POST, RequestMethod.GET})
+    @ResponseBody
+    public String refundNotify(HttpServletRequest request) {
+        String xmlMsg = HttpKit.readData(request);
+        log.info("退款通知=" + xmlMsg);
+        Map<String, String> params = WxPayKit.xmlToMap(xmlMsg);
+
+        String returnCode = params.get("return_code");
+        // 注意重复通知的情况，同一订单号可能收到多次通知，请注意一定先判断订单状态
+        if (WxPayKit.codeIsOk(returnCode)) {
+            String reqInfo = params.get("req_info");
+            String decryptData = WxPayKit.decryptData(reqInfo, WxPayApiConfigKit.getWxPayApiConfig().getPartnerKey());
+            log.info("退款通知解密后的数据=" + decryptData);
+            // 更新订单信息
+            // 发送通知等
+            Map<String, String> xml = new HashMap<String, String>(2);
+            xml.put("return_code", "SUCCESS");
+            xml.put("return_msg", "OK");
+            return WxPayKit.toXml(xml);
+        }
+        return null;
+    }
+
+    @RequestMapping(value = "/sendRedPack", method = {RequestMethod.POST, RequestMethod.GET})
+    @ResponseBody
+    public String sendRedPack(HttpServletRequest request, @RequestParam("openId") String openId) {
+        try {
+            String ip = IpKit.getRealIp(request);
+            if (StrKit.isBlank(ip)) {
+                ip = "127.0.0.1";
+            }
+
+            WxPayApiConfig wxPayApiConfig = WxPayApiConfigKit.getWxPayApiConfig();
+
+            Map<String, String> params = SendRedPackModel.builder()
+                    .nonce_str(WxPayKit.generateStr())
+                    .mch_billno(WxPayKit.generateStr())
+                    .mch_id(wxPayApiConfig.getMchId())
+                    .wxappid(wxPayApiConfig.getAppId())
+                    .send_name("IJPay 红包测试")
+                    .re_openid(openId)
+                    .total_amount("1000")
+                    .total_num("1")
+                    .wishing("感谢您使用 IJPay")
+                    .client_ip(ip)
+                    .act_name("感恩回馈活动")
+                    .remark("点 start 送红包，快来抢!")
+                    .build()
+                    .createSign(wxPayApiConfig.getPartnerKey(), SignType.MD5);
+            String result = WxPayApi.sendRedPack(params, wxPayApiConfig.getCertPath(), wxPayApiConfig.getMchId());
+            System.out.println("发送红包结果:" + result);
+            Map<String, String> map = WxPayKit.xmlToMap(result);
+            return JSON.toJSONString(map);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    /**
      * 异步通知
      */
     @RequestMapping(value = "/payNotify", method = {RequestMethod.POST, RequestMethod.GET})
@@ -788,12 +849,12 @@ public class WxPayController extends AbstractWxPayApiController {
         log.info("支付通知=" + xmlMsg);
         Map<String, String> params = WxPayKit.xmlToMap(xmlMsg);
 
-        String resultCode = params.get("result_code");
+        String returnCode = params.get("return_code");
 
         // 注意重复通知的情况，同一订单号可能收到多次通知，请注意一定先判断订单状态
-
-        if (WxPayKit.verifyNotify(params, WxPayApiConfigKit.getWxPayApiConfig().getPartnerKey())) {
-            if (WxPayKit.codeIsOk(resultCode)) {
+        // 注意此处签名方式需与统一下单的签名类型一致
+        if (WxPayKit.verifyNotify(params, WxPayApiConfigKit.getWxPayApiConfig().getPartnerKey(), SignType.HMACSHA256)) {
+            if (WxPayKit.codeIsOk(returnCode)) {
                 // 更新订单信息
                 // 发送通知等
                 Map<String, String> xml = new HashMap<String, String>(2);

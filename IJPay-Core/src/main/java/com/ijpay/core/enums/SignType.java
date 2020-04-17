@@ -7,7 +7,7 @@ package com.ijpay.core.enums;
  *
  * <p>IJPay 交流群: 723992875</p>
  *
- * <p>Node.js 版: https://gitee.com/javen205/TNW</p>
+ * <p>Node.js 版: https://gitee.com/javen205/TNWX</p>
  *
  * <p>签名方式</p>
  *
@@ -30,6 +30,11 @@ public enum SignType {
     private final String type;
 
     public String getType() {
+        return type;
+    }
+
+    @Override
+    public String toString() {
         return type;
     }
 }

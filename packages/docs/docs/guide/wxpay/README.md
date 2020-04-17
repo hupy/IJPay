@@ -28,7 +28,7 @@ IJPay 中支持的支付方式以及支付工具
 ## 使用步骤
 
 1. [添加相关依赖](../maven.md)
-2. 找到相关支付方式的文档构建请求参数 Model，并使用 https 执行请求
+2. 找到相关支付方式的接口文档。构建请求参数 Model，并使用 https 执行请求
 3. 调用支付接口唤起支付并完成支付逻辑
 
 
@@ -37,6 +37,18 @@ IJPay 中支持的支付方式以及支付工具
 IJPay 中常用支付方式涉及到的 [Model](https://gitee.com/javen205/IJPay/blob/master/IJPay-WxPay/src/main/java/com/ijpay/wxpay/model)
 都是使用 `builder` 模式来构建，**其中 Model 每个字段与官方接口文档保持一致**，同时支持商户模式、服务商模式。
 
+ ::: warning
+ 为什么要使用 Lombok 来构建接口的请求参数？
+
+1、使用 Lombok 来构建请求参数是为了方便，不用写太多的冗余 get set。
+
+2、避免手动设置误写参数导致的低级错误。
+
+外界对 Lombok 的评价也不太一致，喜欢的非常喜欢不喜欢的就使劲吐槽，那么 IJPay 中有其他的替代方案吗？
+
+当然是有的，最简单粗暴的方法使用 Map 来构建请求参数，再使用 `WxPayKit.buildSign` 来构建签名即可。 IJPay 1.x 版本就是这么做的  
+ :::
+
 ## 扩展 Model
 
 由于支付方式的不同涉及到的接口非常多，如果某些接口的 Model 在 IJPay 没有提供封装，大家可以继承 [BaseModel](https://gitee.com/javen205/IJPay/blob/master/IJPay-Core/src/main/java/com/ijpay/core/model/BaseModel.java) 
@@ -44,8 +56,9 @@ IJPay 中常用支付方式涉及到的 [Model](https://gitee.com/javen205/IJPay
 
 ```java{5}
 @Builder
-@AllArgsConstructor(access = AccessLevel.PRIVATE)
+@AllArgsConstructor
 @Getter
+@Setter
 public class CloseOrderModel extends BaseModel {
     // 属性字段名称与接口参数保持一致 
     private String appid;
@@ -81,7 +94,7 @@ Map<String, String> params = UnifiedOrderModel
     .mch_id(wxPayBean.getMchId())
     .nonce_str(WxPayKit.generateStr())
     .body("IJPay 让支付触手可及")
-    .attach("Node.js 版:https://gitee.com/javen205/TNW")
+    .attach("Node.js 版:https://gitee.com/javen205/TNWX")
     .out_trade_no(WxPayKit.generateStr())
     .total_fee("1000")
     .spbill_create_ip(ip)
@@ -117,7 +130,7 @@ return new AjaxResult().success(jsonStr);
 ``` 
 
 ::: tip 完整示例
-公众号[如何唤起支付](https://pay.weixin.qq.com/wiki/doc/api/jsapi.php?chapter=7_7&index=6)，完整示例请参考 [IJPay-Demo](https://gitee.com/javen205/IJPay/blob/master/IJPay-Demo/src/main/java/com/ijpay/demo/controller/wxpay/WxPayController.java)
+公众号[如何唤起支付](https://pay.weixin.qq.com/wiki/doc/api/jsapi.php?chapter=7_7&index=6)，完整示例请参考 [IJPay-Demo](https://gitee.com/javen205/IJPay/blob/master/IJPay-Demo-SpringBoot/src/main/java/com/ijpay/demo/controller/wxpay/WxPayController.java)
 :::
 
 ## 多应用支持
@@ -125,5 +138,19 @@ return new AjaxResult().success(jsonStr);
 微信支付的多应用支持方式与支付宝的多应用无缝切换一致，请参考 [支付宝初始化](../alipay/init.md)
 
 
+## 完整示例
+
+ ::: tip
+ IJPay 2.x 版本示例
+ :::
+ 
+- [IJPay-Demo-SpringBoot](https://gitee.com/javen205/IJPay/tree/master/IJPay-Demo-SpringBoot)
+- [IJPay-Demo-JFinal](https://gitee.com/javen205/IJPay/tree/master/IJPay-Demo-JFinal)
+
+ ::: tip
+ IJPay 1.x 版本示例
+ :::
+ 
+- [IJPay-Demo](https://gitee.com/javen205/IJPay-Demo)
 
 

@@ -5,7 +5,7 @@
  *
  * <p>IJPay 交流群: 723992875</p>
  *
- * <p>Node.js 版: https://gitee.com/javen205/TNW</p>
+ * <p>Node.js 版: https://gitee.com/javen205/TNWX</p>
  *
  * <p> 在线支付接口 </p>
  *
@@ -13,14 +13,15 @@
  */
 package com.ijpay.jdpay.model;
 
-import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.Setter;
 
 @Builder
-@AllArgsConstructor(access = AccessLevel.PRIVATE)
+@AllArgsConstructor
 @Getter
+@Setter
 public class SaveOrderModel extends JdBaseModel {
    private String version;
    private String sign;

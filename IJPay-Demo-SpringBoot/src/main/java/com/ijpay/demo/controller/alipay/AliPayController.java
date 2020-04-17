@@ -1,5 +1,7 @@
 package com.ijpay.demo.controller.alipay;
 
+import cn.hutool.core.date.DateUtil;
+import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.alipay.api.AlipayApiException;
 import com.alipay.api.domain.*;
@@ -10,6 +12,8 @@ import com.alipay.api.response.AlipayTradeCreateResponse;
 import com.ijpay.alipay.AliPayApi;
 import com.ijpay.alipay.AliPayApiConfig;
 import com.ijpay.alipay.AliPayApiConfigKit;
+import com.ijpay.core.kit.PayKit;
+import com.ijpay.core.kit.RsaKit;
 import com.ijpay.demo.entity.AliPayBean;
 import com.ijpay.demo.utils.StringUtils;
 import com.ijpay.demo.vo.AjaxResult;
@@ -23,6 +27,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -33,7 +38,7 @@ import java.util.Map;
  *
  * <p>IJPay 交流群: 723992875</p>
  *
- * <p>Node.js 版: https://gitee.com/javen205/TNW</p>
+ * <p>Node.js 版: https://gitee.com/javen205/TNWX</p>
  *
  * <p>支付宝支付 Demo</p>
  *
@@ -48,9 +53,22 @@ public class AliPayController extends AbstractAliPayApiController {
     private AliPayBean aliPayBean;
 
     private AjaxResult result = new AjaxResult();
+    /**
+     * 普通公钥模式
+     */
+//     private final static String NOTIFY_URL = "/aliPay/notify_url";
+    /**
+     * 证书模式
+     */
+    private final static String NOTIFY_URL = "/aliPay/cert_notify_url";
+//    private final static String RETURN_URL = "/aliPay/return_url";
+    /**
+     * 证书模式
+     */
+    private final static String RETURN_URL = "/aliPay/cert_return_url";
 
     @Override
-    public AliPayApiConfig getApiConfig() {
+    public AliPayApiConfig getApiConfig() throws AlipayApiException {
         AliPayApiConfig aliPayApiConfig;
         try {
             aliPayApiConfig = AliPayApiConfigKit.getApiConfig(aliPayBean.getAppId());
@@ -58,11 +76,18 @@ public class AliPayController extends AbstractAliPayApiController {
             aliPayApiConfig = AliPayApiConfig.builder()
                     .setAppId(aliPayBean.getAppId())
                     .setAliPayPublicKey(aliPayBean.getPublicKey())
+                    .setAppCertPath(aliPayBean.getAppCertPath())
+                    .setAliPayCertPath(aliPayBean.getAliPayCertPath())
+                    .setAliPayRootCertPath(aliPayBean.getAliPayRootCertPath())
                     .setCharset("UTF-8")
                     .setPrivateKey(aliPayBean.getPrivateKey())
                     .setServiceUrl(aliPayBean.getServerUrl())
                     .setSignType("RSA2")
-                    .build();
+                    // 普通公钥方式
+                    //.build();
+                    // 证书模式
+                    .buildByCert();
+
         }
         return aliPayApiConfig;
     }
@@ -98,7 +123,7 @@ public class AliPayController extends AbstractAliPayApiController {
             model.setTotalAmount("0.01");
             model.setPassbackParams("callback params");
             model.setProductCode("QUICK_MSECURITY_PAY");
-            String orderInfo = AliPayApi.appPayToResponse(model, aliPayBean.getDomain() + "/aliPay/notify_url").getBody();
+            String orderInfo = AliPayApi.appPayToResponse(model, aliPayBean.getDomain() + NOTIFY_URL).getBody();
             result.success(orderInfo);
         } catch (AlipayApiException e) {
             e.printStackTrace();
@@ -107,6 +132,48 @@ public class AliPayController extends AbstractAliPayApiController {
         return result;
     }
 
+    @RequestMapping(value = "/wapPayNoSdk")
+    @ResponseBody
+    public void wapPayNoSdk(HttpServletResponse response) {
+        try {
+            AliPayApiConfig aliPayApiConfig = AliPayApiConfigKit.getAliPayApiConfig();
+            Map<String, String> paramsMap = new HashMap<>();
+            paramsMap.put("app_id", aliPayApiConfig.getAppId());
+            paramsMap.put("method", "alipay.trade.wap.pay");
+            paramsMap.put("return_url", aliPayBean.getDomain() + RETURN_URL);
+            paramsMap.put("charset", aliPayApiConfig.getCharset());
+            paramsMap.put("sign_type", aliPayApiConfig.getSignType());
+            paramsMap.put("timestamp", DateUtil.format(new Date(), "yyyy-MM-dd HH:mm:ss"));
+            paramsMap.put("version", "1.0");
+            paramsMap.put("notify_url", aliPayBean.getDomain() + NOTIFY_URL);
+
+            Map<String, String> bizMap = new HashMap<>();
+            bizMap.put("body", "IJPay 聚合支付-H5");
+            bizMap.put("subject", "IJPay 让支付触手可及");
+            bizMap.put("out_trade_no", StringUtils.getOutTradeNo());
+            bizMap.put("total_amount", "6.66");
+            bizMap.put("product_code", "QUICK_WAP_WAY");
+
+            paramsMap.put("biz_content", JSON.toJSONString(bizMap));
+
+            String content = PayKit.createLinkString(paramsMap);
+
+            System.out.println(content);
+
+            String encrypt = RsaKit.encryptByPrivateKey(content, aliPayApiConfig.getPrivateKey());
+            System.out.println(encrypt);
+//            encrypt = AlipaySignature.rsaSign(content,aliPayApiConfig.getPrivateKey(), "UTF-8","RSA2");
+//            System.out.println(encrypt);
+            paramsMap.put("sign", encrypt);
+
+            String url = aliPayApiConfig.getServiceUrl() + "?" + PayKit.createLinkString(paramsMap, true);
+            System.out.println(url);
+            response.sendRedirect(url);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
 
     @RequestMapping(value = "/wapPay")
     @ResponseBody
@@ -114,15 +181,15 @@ public class AliPayController extends AbstractAliPayApiController {
         String body = "我是测试数据-By Javen";
         String subject = "Javen Wap支付测试";
         String totalAmount = "1";
-        String passbackParams = "1";
-        String returnUrl = aliPayBean.getDomain() + "/aliPay/return_url";
-        String notifyUrl = aliPayBean.getDomain() + "/aliPay/notify_url";
+        String passBackParams = "1";
+        String returnUrl = aliPayBean.getDomain() + RETURN_URL;
+        String notifyUrl = aliPayBean.getDomain() + NOTIFY_URL;
 
         AlipayTradeWapPayModel model = new AlipayTradeWapPayModel();
         model.setBody(body);
         model.setSubject(subject);
         model.setTotalAmount(totalAmount);
-        model.setPassbackParams(passbackParams);
+        model.setPassbackParams(passBackParams);
         String outTradeNo = StringUtils.getOutTradeNo();
         System.out.println("wap outTradeNo>" + outTradeNo);
         model.setOutTradeNo(outTradeNo);
@@ -147,8 +214,8 @@ public class AliPayController extends AbstractAliPayApiController {
             String outTradeNo = StringUtils.getOutTradeNo();
             log.info("pc outTradeNo>" + outTradeNo);
 
-            String returnUrl = aliPayBean.getDomain() + "/aliPay/return_url";
-            String notifyUrl = aliPayBean.getDomain() + "/aliPay/notify_url";
+            String returnUrl = aliPayBean.getDomain() + RETURN_URL;
+            String notifyUrl = aliPayBean.getDomain() + NOTIFY_URL;
             AlipayTradePagePayModel model = new AlipayTradePagePayModel();
 
             model.setOutTradeNo(outTradeNo);
@@ -162,10 +229,10 @@ public class AliPayController extends AbstractAliPayApiController {
              * hb_fq_num代表花呗分期数，仅支持传入3、6、12，其他期数暂不支持，传入会报错；
              * hb_fq_seller_percent代表卖家承担收费比例，商家承担手续费传入100，用户承担手续费传入0，仅支持传入100、0两种，其他比例暂不支持，传入会报错。
              */
-            ExtendParams extendParams = new ExtendParams();
-            extendParams.setHbFqNum("3");
-            extendParams.setHbFqSellerPercent("0");
-            model.setExtendParams(extendParams);
+//            ExtendParams extendParams = new ExtendParams();
+//            extendParams.setHbFqNum("3");
+//            extendParams.setHbFqSellerPercent("0");
+//            model.setExtendParams(extendParams);
 
             AliPayApi.tradePage(response, model, notifyUrl, returnUrl);
         } catch (Exception e) {
@@ -176,7 +243,7 @@ public class AliPayController extends AbstractAliPayApiController {
 
     @RequestMapping(value = "/tradePay")
     @ResponseBody
-    public String tradePay(@RequestParam("auth_code") String authCode, @RequestParam("scene") String scene) {
+    public String tradePay(@RequestParam("authCode") String authCode, @RequestParam("scene") String scene) {
         String subject = null;
         String waveCode = "wave_code";
         String barCode = "bar_code";
@@ -186,7 +253,7 @@ public class AliPayController extends AbstractAliPayApiController {
             subject = "Javen 支付宝条形码支付测试";
         }
         String totalAmount = "100";
-        String notifyUrl = aliPayBean.getDomain() + "/aliPay/notify_url";
+        String notifyUrl = aliPayBean.getDomain() + NOTIFY_URL;
 
         AlipayTradePayModel model = new AlipayTradePayModel();
         model.setAuthCode(authCode);
@@ -206,13 +273,14 @@ public class AliPayController extends AbstractAliPayApiController {
     /**
      * 扫码支付
      */
-    @RequestMapping(value = "/tradePrecreatePay")
+    @RequestMapping(value = "/tradePreCreatePay")
     @ResponseBody
-    public String tradePrecreatePay() {
+    public String tradePreCreatePay() {
         String subject = "Javen 支付宝扫码支付测试";
         String totalAmount = "86";
         String storeId = "123";
-        String notifyUrl = aliPayBean.getDomain() + "/aliPay/notify_url";
+//        String notifyUrl = aliPayBean.getDomain() + NOTIFY_URL;
+        String notifyUrl = aliPayBean.getDomain() + "/aliPay/cert_notify_url";
 
         AlipayTradePrecreateModel model = new AlipayTradePrecreateModel();
         model.setSubject(subject);
@@ -232,29 +300,107 @@ public class AliPayController extends AbstractAliPayApiController {
 
     /**
      * 单笔转账到支付宝账户
-     * https://doc.open.alipay.com/docs/doc.htm?spm=a219a.7629140.0.0.54Ty29&
-     * treeId=193&articleId=106236&docType=1
+     * https://docs.open.alipay.com/309/106235/
      */
     @RequestMapping(value = "/transfer")
     @ResponseBody
-    public boolean transfer() {
-        boolean isSuccess = false;
+    public String transfer() {
         String totalAmount = "66";
         AlipayFundTransToaccountTransferModel model = new AlipayFundTransToaccountTransferModel();
         model.setOutBizNo(StringUtils.getOutTradeNo());
         model.setPayeeType("ALIPAY_LOGONID");
-        model.setPayeeAccount("abpkvd0206@sandbox.com");
+        model.setPayeeAccount("gxthqd7606@sandbox.com");
         model.setAmount(totalAmount);
         model.setPayerShowName("测试退款");
         model.setPayerRealName("沙箱环境");
         model.setRemark("javen测试单笔转账到支付宝");
 
         try {
-            isSuccess = AliPayApi.transfer(model);
+            return AliPayApi.transferToResponse(model).getBody();
         } catch (Exception e) {
             e.printStackTrace();
         }
-        return isSuccess;
+        return null;
+    }
+
+    @RequestMapping(value = "/transferQuery")
+    @ResponseBody
+    public String transferQuery(@RequestParam(required = false, name = "outBizNo") String outBizNo,
+                                @RequestParam(required = false, name = "orderId") String orderId) {
+        AlipayFundTransOrderQueryModel model = new AlipayFundTransOrderQueryModel();
+        if (StringUtils.isNotEmpty(outBizNo)) {
+            model.setOutBizNo(outBizNo);
+        }
+        if (StringUtils.isNotEmpty(orderId)) {
+            model.setOrderId(orderId);
+        }
+
+        try {
+            return AliPayApi.transferQueryToResponse(model).getBody();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    @RequestMapping(value = "/uniTransfer")
+    @ResponseBody
+    public String uniTransfer() {
+        String totalAmount = "1";
+        AlipayFundTransUniTransferModel model = new AlipayFundTransUniTransferModel();
+        model.setOutBizNo(StringUtils.getOutTradeNo());
+        model.setTransAmount(totalAmount);
+        model.setProductCode("TRANS_ACCOUNT_NO_PWD");
+        model.setBizScene("DIRECT_TRANSFER");
+        model.setOrderTitle("统一转账-转账至支付宝账户");
+        model.setRemark("IJPay 测试统一转账");
+
+        Participant payeeInfo = new Participant();
+        payeeInfo.setIdentity("gxthqd7606@sandbox.com");
+        payeeInfo.setIdentityType("ALIPAY_LOGON_ID");
+        payeeInfo.setName("沙箱环境");
+        model.setPayeeInfo(payeeInfo);
+
+        try {
+            return AliPayApi.uniTransferToResponse(model,null).getBody();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    @RequestMapping(value = "/uniTransferQuery")
+    @ResponseBody
+    public String uniTransferQuery(@RequestParam(required = false, name = "outBizNo") String outBizNo,
+                                @RequestParam(required = false, name = "orderId") String orderId) {
+        AlipayFundTransCommonQueryModel model = new AlipayFundTransCommonQueryModel();
+        if (StringUtils.isNotEmpty(outBizNo)) {
+            model.setOutBizNo(outBizNo);
+        }
+        if (StringUtils.isNotEmpty(orderId)) {
+            model.setOrderId(orderId);
+        }
+
+        try {
+            return AliPayApi.transCommonQueryToResponse(model,null).getBody();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    @RequestMapping(value = "/accountQuery")
+    @ResponseBody
+    public String accountQuery(@RequestParam(required = true, name = "aliPayUserId") String aliPayUserId) {
+        AlipayFundAccountQueryModel model = new AlipayFundAccountQueryModel();
+        model.setAlipayUserId(aliPayUserId);
+        model.setAccountType("ACCTRANS_ACCOUNT");
+        try {
+            return AliPayApi.accountQueryToResponse(model,null).getBody();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
     }
 
     /**
@@ -306,14 +452,14 @@ public class AliPayController extends AbstractAliPayApiController {
     /**
      * 下载对账单
      */
-    @RequestMapping(value = "/dataDataserviceBill")
+    @RequestMapping(value = "/dataDataServiceBill")
     @ResponseBody
-    public String dataDataserviceBill(@RequestParam("billDate") String billDate) {
+    public String dataDataServiceBill(@RequestParam("billDate") String billDate) {
         try {
             AlipayDataDataserviceBillDownloadurlQueryModel model = new AlipayDataDataserviceBillDownloadurlQueryModel();
             model.setBillType("trade");
             model.setBillDate(billDate);
-            return AliPayApi.billDownloadurlQuery(model);
+            return AliPayApi.billDownloadUrlQuery(model);
         } catch (AlipayApiException e) {
             e.printStackTrace();
         }
@@ -325,12 +471,16 @@ public class AliPayController extends AbstractAliPayApiController {
      */
     @RequestMapping(value = "/tradeRefund")
     @ResponseBody
-    public String tradeRefund() {
+    public String tradeRefund(@RequestParam(required = false, name = "outTradeNo") String outTradeNo, @RequestParam(required = false, name = "tradeNo") String tradeNo) {
 
         try {
             AlipayTradeRefundModel model = new AlipayTradeRefundModel();
-            model.setOutTradeNo("081014283315023");
-            model.setTradeNo("2017081021001004200200273870");
+            if (StringUtils.isNotEmpty(outTradeNo)) {
+                model.setOutTradeNo(outTradeNo);
+            }
+            if (StringUtils.isNotEmpty(tradeNo)) {
+                model.setTradeNo(tradeNo);
+            }
             model.setRefundAmount("86.00");
             model.setRefundReason("正常退款");
             return AliPayApi.tradeRefundToResponse(model).getBody();
@@ -345,25 +495,32 @@ public class AliPayController extends AbstractAliPayApiController {
      */
     @RequestMapping(value = "/tradeQuery")
     @ResponseBody
-    public boolean tradeQuery() {
-        boolean isSuccess = false;
+    public String tradeQuery(@RequestParam(required = false, name = "outTradeNo") String outTradeNo, @RequestParam(required = false, name = "tradeNo") String tradeNo) {
         try {
             AlipayTradeQueryModel model = new AlipayTradeQueryModel();
-            model.setOutTradeNo("081014283315023");
-            model.setTradeNo("2017081021001004200200273870");
-
-            isSuccess = AliPayApi.tradeQueryToResponse(model).isSuccess();
+            if (StringUtils.isNotEmpty(outTradeNo)) {
+                model.setOutTradeNo(outTradeNo);
+            }
+            if (StringUtils.isNotEmpty(tradeNo)) {
+                model.setTradeNo(tradeNo);
+            }
+            return AliPayApi.tradeQueryToResponse(model).getBody();
         } catch (AlipayApiException e) {
             e.printStackTrace();
         }
-        return isSuccess;
+        return null;
     }
 
     @RequestMapping(value = "/tradeQueryByStr")
     @ResponseBody
-    public String tradeQueryByStr(@RequestParam("out_trade_no") String outTradeNo) {
+    public String tradeQueryByStr(@RequestParam(required = false, name = "outTradeNo") String outTradeNo, @RequestParam(required = false, name = "tradeNo") String tradeNo) {
         AlipayTradeQueryModel model = new AlipayTradeQueryModel();
-        model.setOutTradeNo(outTradeNo);
+        if (StringUtils.isNotEmpty(outTradeNo)) {
+            model.setOutTradeNo(outTradeNo);
+        }
+        if (StringUtils.isNotEmpty(tradeNo)) {
+            model.setTradeNo(tradeNo);
+        }
 
         try {
             return AliPayApi.tradeQueryToResponse(model).getBody();
@@ -380,9 +537,9 @@ public class AliPayController extends AbstractAliPayApiController {
      */
     @RequestMapping(value = "/tradeCreate")
     @ResponseBody
-    public String tradeCreate(@RequestParam("out_trade_no") String outTradeNo) {
+    public String tradeCreate(@RequestParam("outTradeNo") String outTradeNo) {
 
-        String notifyUrl = aliPayBean.getDomain() + "/aliPay/notify_url";
+        String notifyUrl = aliPayBean.getDomain() + NOTIFY_URL;
 
         AlipayTradeCreateModel model = new AlipayTradeCreateModel();
         model.setOutTradeNo(outTradeNo);
@@ -405,18 +562,21 @@ public class AliPayController extends AbstractAliPayApiController {
      */
     @RequestMapping(value = "/tradeCancel")
     @ResponseBody
-    public boolean tradeCancel() {
-        boolean isSuccess = false;
+    public String tradeCancel(@RequestParam(required = false, name = "outTradeNo") String outTradeNo, @RequestParam(required = false, name = "tradeNo") String tradeNo) {
         try {
             AlipayTradeCancelModel model = new AlipayTradeCancelModel();
-            model.setOutTradeNo("081014283315033");
-            model.setTradeNo("2017081021001004200200274066");
+            if (StringUtils.isNotEmpty(outTradeNo)) {
+                model.setOutTradeNo(outTradeNo);
+            }
+            if (StringUtils.isNotEmpty(tradeNo)) {
+                model.setTradeNo(tradeNo);
+            }
 
-            isSuccess = AliPayApi.tradeCancelToResponse(model).isSuccess();
+            return AliPayApi.tradeCancelToResponse(model).getBody();
         } catch (AlipayApiException e) {
             e.printStackTrace();
         }
-        return isSuccess;
+        return null;
     }
 
     /**
@@ -424,12 +584,15 @@ public class AliPayController extends AbstractAliPayApiController {
      */
     @RequestMapping(value = "/tradeClose")
     @ResponseBody
-    public String tradeClose(@RequestParam("out_trade_no") String outTradeNo, @RequestParam("trade_no") String tradeNo) {
+    public String tradeClose(@RequestParam("outTradeNo") String outTradeNo, @RequestParam("tradeNo") String tradeNo) {
         try {
             AlipayTradeCloseModel model = new AlipayTradeCloseModel();
-            model.setOutTradeNo(outTradeNo);
-
-            model.setTradeNo(tradeNo);
+            if (StringUtils.isNotEmpty(outTradeNo)) {
+                model.setOutTradeNo(outTradeNo);
+            }
+            if (StringUtils.isNotEmpty(tradeNo)) {
+                model.setTradeNo(tradeNo);
+            }
 
             return AliPayApi.tradeCloseToResponse(model).getBody();
         } catch (AlipayApiException e) {
@@ -443,7 +606,7 @@ public class AliPayController extends AbstractAliPayApiController {
      */
     @RequestMapping(value = "/tradeOrderSettle")
     @ResponseBody
-    public String tradeOrderSettle(@RequestParam("trade_no") String tradeNo) {
+    public String tradeOrderSettle(@RequestParam("tradeNo") String tradeNo) {
         try {
             AlipayTradeOrderSettleModel model = new AlipayTradeOrderSettleModel();
             model.setOutRequestNo(StringUtils.getOutTradeNo());
@@ -496,7 +659,7 @@ public class AliPayController extends AbstractAliPayApiController {
      */
     @RequestMapping(value = "/openAuthTokenAppQuery")
     @ResponseBody
-    public String openAuthTokenAppQuery(@RequestParam("app_auth_token") String appAuthToken) {
+    public String openAuthTokenAppQuery(@RequestParam("appAuthToken") String appAuthToken) {
         try {
             AlipayOpenAuthTokenAppQueryModel model = new AlipayOpenAuthTokenAppQueryModel();
             model.setAppAuthToken(appAuthToken);
@@ -515,7 +678,7 @@ public class AliPayController extends AbstractAliPayApiController {
     public void batchTrans(HttpServletResponse response) {
         try {
             String signType = "MD5";
-            String notifyUrl = aliPayBean.getDomain() + "/aliPay/notify_url";
+            String notifyUrl = aliPayBean.getDomain() + NOTIFY_URL;
             Map<String, String> params = new HashMap<>(15);
             params.put("partner", "PID");
             params.put("sign_type", signType);
@@ -589,6 +752,35 @@ public class AliPayController extends AbstractAliPayApiController {
         }
     }
 
+    @RequestMapping(value = "/cert_return_url")
+    @ResponseBody
+    public String certReturnUrl(HttpServletRequest request) {
+        try {
+            // 获取支付宝GET过来反馈信息
+            Map<String, String> map = AliPayApi.toMap(request);
+            for (Map.Entry<String, String> entry : map.entrySet()) {
+                System.out.println(entry.getKey() + " = " + entry.getValue());
+            }
+
+            boolean verifyResult = AlipaySignature.rsaCertCheckV1(map, aliPayBean.getAliPayCertPath(), "UTF-8",
+                    "RSA2");
+
+            if (verifyResult) {
+                // TODO 请在这里加上商户的业务逻辑程序代码
+                System.out.println("certReturnUrl 验证成功");
+
+                return "success";
+            } else {
+                System.out.println("certReturnUrl 验证失败");
+                // TODO
+                return "failure";
+            }
+        } catch (AlipayApiException e) {
+            e.printStackTrace();
+            return "failure";
+        }
+    }
+
 
     @RequestMapping(value = "/notify_url")
     @ResponseBody
@@ -617,4 +809,33 @@ public class AliPayController extends AbstractAliPayApiController {
             return "failure";
         }
     }
+
+    @RequestMapping(value = "/cert_notify_url")
+    @ResponseBody
+    public String certNotifyUrl(HttpServletRequest request) {
+        try {
+            // 获取支付宝POST过来反馈信息
+            Map<String, String> params = AliPayApi.toMap(request);
+
+            for (Map.Entry<String, String> entry : params.entrySet()) {
+                System.out.println(entry.getKey() + " = " + entry.getValue());
+            }
+
+            boolean verifyResult = AlipaySignature.rsaCertCheckV1(params, aliPayBean.getAliPayCertPath(), "UTF-8", "RSA2");
+
+            if (verifyResult) {
+                // TODO 请在这里加上商户的业务逻辑程序代码 异步通知可能出现订单重复通知 需要做去重处理
+                System.out.println("certNotifyUrl 验证成功succcess");
+                return "success";
+            } else {
+                System.out.println("certNotifyUrl 验证失败");
+                // TODO
+                return "failure";
+            }
+        } catch (AlipayApiException e) {
+            e.printStackTrace();
+            return "failure";
+        }
+    }
+
 }

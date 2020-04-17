@@ -15,7 +15,7 @@ import javax.servlet.http.HttpServletResponse;
  *
  * <p>IJPay 交流群: 723992875</p>
  *
- * <p>Node.js 版: https://gitee.com/javen205/TNW</p>
+ * <p>Node.js 版: https://gitee.com/javen205/TNWX</p>
  *
  * <p>微信支付拦截器</p>
  *
@@ -29,7 +29,7 @@ public class WxPayInterceptor implements HandlerInterceptor {
             HandlerMethod method = (HandlerMethod) handler;
             Object controller = method.getBean();
             if (!(controller instanceof AbstractWxPayApiController)) {
-                throw new RuntimeException("控制器需要继承 AliPayApiController");
+                throw new RuntimeException("控制器需要继承 AbstractWxPayApiController");
             }
             WxPayApiConfigKit.setThreadLocalWxPayApiConfig(((AbstractWxPayApiController) controller).getApiConfig());
             return true;

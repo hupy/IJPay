@@ -3,15 +3,30 @@
 
 ## 初始化客户端
 
-```java{10,11}
-AliPayApiConfig aliPayApiConfig = AliPayApiConfig.builder()
+```java{3,4,5,11,12,13,14,22,23}
+AliPayApiConfig aliPayApiConfig = AliPayApiConfig.builder() 
+    .setAppId(aliPayBean.getAppId())
+    .setAppCertPath(aliPayBean.getAppCertPath())
+    .setAliPayCertPath(aliPayBean.getAliPayCertPath())
+    .setAliPayRootCertPath(aliPayBean.getAliPayRootCertPath())
+    .setCharset("UTF-8")
+    .setPrivateKey(aliPayBean.getPrivateKey())  
+    .setAliPayPublicKey(aliPayBean.getPublicKey())
+    .setServiceUrl(aliPayBean.getServerUrl())
+    .setSignType("RSA2")
+    // 普通公钥方式
+    //.build();
+    // 证书模式
+    .buildByCert();   
+    // 或者 
     .setAppId(aliPayBean.getAppId())
     .setAliPayPublicKey(aliPayBean.getPublicKey())
     .setCharset("UTF-8")
     .setPrivateKey(aliPayBean.getPrivateKey())
     .setServiceUrl(aliPayBean.getServerUrl())
     .setSignType("RSA2")
-    .build();
+    .build(); // 普通公钥方式 
+    .build(appCertPath, aliPayCertPath, aliPayRootCertPath) // 2.3.0 公钥证书方式  
 
 AliPayApiConfigKit.setThreadLocalAppId(aliPayBean.getAppId()); // 2.1.2 之后的版本，可以不用单独设置 
 AliPayApiConfigKit.setThreadLocalAliPayApiConfig(aliPayApiConfig);

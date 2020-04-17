@@ -5,7 +5,7 @@
  *
  * <p>IJPay 交流群: 723992875</p>
  *
- * <p>Node.js 版: https://gitee.com/javen205/TNW</p>
+ * <p>Node.js 版: https://gitee.com/javen205/TNWX</p>
  *
  * <p>撤销订单 Model</p>
  * <p>支持: 普通支付撤销订单、刷脸支付撤销订单</p>
@@ -15,14 +15,15 @@
 package com.ijpay.wxpay.model;
 
 import com.ijpay.core.model.BaseModel;
-import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.Setter;
 
 @Builder
-@AllArgsConstructor(access = AccessLevel.PRIVATE)
+@AllArgsConstructor
 @Getter
+@Setter
 public class ReverseModel extends BaseModel {
     private String appid;
     private String sub_appid;

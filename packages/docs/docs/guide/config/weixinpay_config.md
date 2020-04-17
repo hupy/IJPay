@@ -4,6 +4,10 @@
 
 [支付账户以及商户专有名词介绍](https://pay.weixin.qq.com/wiki/doc/api/jsapi.php?chapter=3_1)
 
+## 普通商户模式与服务商模式区别
+
+相对于开发而言，普通商户模式与服务商模式最大的区别就是接口的部分请求参数不同而接口是相同的。
+
 ## 普通商户模式
 
 ::: tip IJPay 中微信支付需要配置的参数如下：
@@ -11,7 +15,7 @@
 - appSecret: appSecret 是 appId 对应的接口密码，微信公众号授权获取用户 openId 时使用
 - mchId: 微信支付商户号
 - partnerKey: API 密钥，微信商户后台配置
-- certPath: `apiclient_cert.p1` 证书路径，在微信商户后台下载
+- certPath: `apiclient_cert.p12` 证书绝对路径，在微信商户后台下载
 - domain: 外网访问项目的域名，支付通知中会使用
 :::
 
@@ -25,7 +29,7 @@
 - mchId: 微信支付商户号
 - subMchId: 子商户号
 - partnerKey: API 密钥，服务商微信商户后台配置
-- certPath: `apiclient_cert.p1` 证书路径，在服务商微信商户后台下载
+- certPath: `apiclient_cert.p12` 证书绝对路径，在服务商微信商户后台下载
 - domain: 外网访问项目的域名，支付通知中会使用
 :::
 

@@ -1,8 +1,14 @@
 package com.ijpay.core.kit;
 
+import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.util.StrUtil;
+import com.ijpay.core.enums.RequestMethod;
 import com.ijpay.core.enums.SignType;
 
+import java.io.InputStream;
+import java.security.PrivateKey;
+import java.security.PublicKey;
+import java.security.cert.X509Certificate;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -14,7 +20,7 @@ import java.util.Map;
  *
  * <p>IJPay 交流群: 723992875</p>
  *
- * <p>Node.js 版: https://gitee.com/javen205/TNW</p>
+ * <p>Node.js 版: https://gitee.com/javen205/TNWX</p>
  *
  * <p>微信支付工具类</p>
  *
@@ -78,7 +84,7 @@ public class WxPayKit {
      * @param params     参数
      * @param partnerKey 支付密钥
      * @param signType   {@link SignType}
-     * @return
+     * @return {@link Boolean} 验证签名结果
      */
     public static boolean verifyNotify(Map<String, String> params, String partnerKey, SignType signType) {
         String sign = params.get("sign");
@@ -110,6 +116,21 @@ public class WxPayKit {
     }
 
     /**
+     * 生成签名
+     *
+     * @param params   需要签名的参数
+     * @param secret   企业微信支付应用secret
+     * @return 签名后的数据
+     */
+    public static String createSign(Map<String, String> params, String secret) {
+        // 生成签名前先去除sign
+        params.remove(FIELD_SIGN);
+        String tempStr = PayKit.createLinkString(params);
+        String stringSignTemp = tempStr + "&secret=" + secret;
+        return md5(stringSignTemp).toUpperCase();
+    }
+
+    /**
      * 构建签名
      *
      * @param params     需要签名的参数
@@ -118,17 +139,29 @@ public class WxPayKit {
      * @return 签名后的 Map
      */
     public static Map<String, String> buildSign(Map<String, String> params, String partnerKey, SignType signType) {
-        if (signType == null) {
-            signType = SignType.MD5;
+        return buildSign(params, partnerKey, signType, true);
+    }
+
+    /**
+     * 构建签名
+     *
+     * @param params       需要签名的参数
+     * @param partnerKey   密钥
+     * @param signType     签名类型
+     * @param haveSignType 签名是否包含 sign_type 字段
+     * @return 签名后的 Map
+     */
+    public static Map<String, String> buildSign(Map<String, String> params, String partnerKey, SignType signType, boolean haveSignType) {
+        if (haveSignType) {
+            params.put(FIELD_SIGN_TYPE, signType.getType());
         }
-        params.put(FIELD_SIGN_TYPE, signType.getType());
         String sign = createSign(params, partnerKey, signType);
         params.put(FIELD_SIGN, sign);
         return params;
     }
 
-    public static StringBuilder forEachMap(Map<String, String> params, String prefix, String suffix) {
-        return PayKit.forEachMap(params,prefix,suffix);
+    public static StringBuffer forEachMap(Map<String, String> params, String prefix, String suffix) {
+        return PayKit.forEachMap(params, prefix, suffix);
     }
 
     /**
@@ -161,7 +194,7 @@ public class WxPayKit {
      * @param productId 商品ID
      * @param timeStamp 时间戳
      * @param nonceStr  随机字符串
-     * @return
+     * @return {String}
      */
     public static String bizPayUrl(String sign, String appId, String mchId, String productId, String timeStamp, String nonceStr) {
         String rules = "weixin://wxpay/bizpayurl?sign=Temp&appid=Temp&mch_id=Temp&product_id=Temp&time_stamp=Temp&nonce_str=Temp";
@@ -179,7 +212,7 @@ public class WxPayKit {
      * @param timeStamp  时间戳
      * @param nonceStr   随机字符串
      * @param signType   签名类型
-     * @return
+     * @return {String}
      */
     public static String bizPayUrl(String partnerKey, String appId, String mchId, String productId, String timeStamp, String nonceStr, SignType signType) {
         HashMap<String, String> map = new HashMap<String, String>(5);
@@ -199,7 +232,7 @@ public class WxPayKit {
      * @param appId      公众账号ID
      * @param mchId      商户号
      * @param productId  商品ID
-     * @return
+     * @return {String}
      */
     public static String bizPayUrl(String partnerKey, String appId, String mchId, String productId) {
         String timeStamp = Long.toString(System.currentTimeMillis() / 1000);
@@ -286,7 +319,6 @@ public class WxPayKit {
         if (signType == null) {
             signType = SignType.MD5;
         }
-        packageParams.put("signType", signType.getType());
         String packageSign = createSign(packageParams, partnerKey, signType);
         packageParams.put("sign", packageSign);
         return packageParams;
@@ -315,5 +347,138 @@ public class WxPayKit {
         String packageSign = createSign(packageParams, partnerKey, signType);
         packageParams.put("paySign", packageSign);
         return packageParams;
+    }
+
+    /**
+     * 构建 v3 接口所需的 Authorization
+     *
+     * @param method    {@link RequestMethod} 请求方法
+     * @param urlSuffix 可通过 WxApiType 来获取，URL挂载参数需要自行拼接
+     * @param mchId     商户Id
+     * @param serialNo  商户 API 证书序列号
+     * @param keyPath   key.pem 证书路径
+     * @param body      接口请求参数
+     * @param nonceStr  随机字符库
+     * @param timestamp 时间戳
+     * @param authType  认证类型
+     * @return {@link String} 返回 v3 所需的 Authorization
+     * @throws Exception 异常信息
+     */
+    public static String buildAuthorization(RequestMethod method, String urlSuffix, String mchId,
+                                            String serialNo, String keyPath, String body, String nonceStr,
+                                            long timestamp, String authType) throws Exception {
+        // 构建签名参数
+        String buildSignMessage = PayKit.buildSignMessage(method, urlSuffix, timestamp, nonceStr, body);
+        // 获取商户私钥
+        PrivateKey privateKey = PayKit.getPrivateKey(keyPath);
+        // 生成签名
+        String signature = RsaKit.encryptByPrivateKey(buildSignMessage, privateKey);
+        // 根据平台规则生成请求头 authorization
+        return PayKit.getAuthorization(mchId, serialNo, nonceStr, String.valueOf(timestamp), signature, authType);
+    }
+
+    /**
+     * 构建 v3 接口所需的 Authorization
+     *
+     * @param method    {@link RequestMethod} 请求方法
+     * @param urlSuffix 可通过 WxApiType 来获取，URL挂载参数需要自行拼接
+     * @param mchId     商户Id
+     * @param serialNo  商户 API 证书序列号
+     * @param keyPath   key.pem 证书路径
+     * @param body      接口请求参数
+     * @return {@link String} 返回 v3 所需的 Authorization
+     * @throws Exception 异常信息
+     */
+    public static String buildAuthorization(RequestMethod method, String urlSuffix, String mchId,
+                                            String serialNo, String keyPath, String body) throws Exception {
+
+        long timestamp = System.currentTimeMillis() / 1000;
+        String authType = "WECHATPAY2-SHA256-RSA2048";
+        String nonceStr = PayKit.generateStr();
+
+        return buildAuthorization(method, urlSuffix, mchId, serialNo, keyPath, body, nonceStr, timestamp, authType);
+    }
+
+    /**
+     * 验证签名
+     *
+     * @param map      接口请求返回的 Map
+     * @param certPath 平台证书路径
+     * @return 签名结果
+     * @throws Exception 异常信息
+     */
+    public static boolean verifySignature(Map<String, Object> map, String certPath) throws Exception {
+        String signature = (String) map.get("signature");
+        String body = (String) map.get("body");
+        String nonceStr = (String) map.get("nonceStr");
+        String timestamp = (String) map.get("timestamp");
+        return verifySignature(signature, body, nonceStr, timestamp, FileUtil.getInputStream(certPath));
+    }
+
+    /**
+     * 验证签名
+     *
+     * @param map             接口请求返回的 Map
+     * @param certInputStream 平台证书输入流
+     * @return 签名结果
+     * @throws Exception 异常信息
+     */
+    public static boolean verifySignature(Map<String, Object> map, InputStream certInputStream) throws Exception {
+        String signature = (String) map.get("signature");
+        String body = (String) map.get("body");
+        String nonceStr = (String) map.get("nonceStr");
+        String timestamp = (String) map.get("timestamp");
+        return verifySignature(signature, body, nonceStr, timestamp, certInputStream);
+    }
+
+    /**
+     * 验证签名
+     *
+     * @param signature 待验证的签名
+     * @param body      应答主体
+     * @param nonce     随机串
+     * @param timestamp 时间戳
+     * @param publicKey 微信支付平台公钥
+     * @return 签名结果
+     * @throws Exception 异常信息
+     */
+    public static boolean verifySignature(String signature, String body, String nonce, String timestamp, String publicKey) throws Exception {
+        String buildSignMessage = PayKit.buildSignMessage(timestamp, nonce, body);
+        return RsaKit.checkByPublicKey(buildSignMessage, signature, publicKey);
+    }
+
+    /**
+     * 验证签名
+     *
+     * @param signature 待验证的签名
+     * @param body      应答主体
+     * @param nonce     随机串
+     * @param timestamp 时间戳
+     * @param publicKey {@link PublicKey} 微信支付平台公钥
+     * @return 签名结果
+     * @throws Exception 异常信息
+     */
+    public static boolean verifySignature(String signature, String body, String nonce, String timestamp, PublicKey publicKey) throws Exception {
+        String buildSignMessage = PayKit.buildSignMessage(timestamp, nonce, body);
+        return RsaKit.checkByPublicKey(buildSignMessage, signature, publicKey);
+    }
+
+    /**
+     * 验证签名
+     *
+     * @param signature       待验证的签名
+     * @param body            应答主体
+     * @param nonce           随机串
+     * @param timestamp       时间戳
+     * @param certInputStream 微信支付平台证书输入流
+     * @return 签名结果
+     * @throws Exception 异常信息
+     */
+    public static boolean verifySignature(String signature, String body, String nonce, String timestamp, InputStream certInputStream) throws Exception {
+        String buildSignMessage = PayKit.buildSignMessage(timestamp, nonce, body);
+        // 获取证书
+        X509Certificate certificate = PayKit.getCertificate(certInputStream);
+        PublicKey publicKey = certificate.getPublicKey();
+        return RsaKit.checkByPublicKey(buildSignMessage, signature, publicKey);
     }
 }
